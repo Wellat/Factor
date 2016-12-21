@@ -1,0 +1,189 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="
+  http://www.springframework.org/schema/beans
+  http://www.springframework.org/schema/beans/spring-beans-4.1.xsd
+  http://www.springframework.org/schema/context
+  http://www.springframework.org/schema/context/spring-context-4.1.xsd
+  http://www.springframework.org/schema/mvc
+  http://www.springframework.org/schema/mvc/spring-mvc-4.1.xsd
+  http://www.springframework.org/schema/aop
+  http://www.springframework.org/schema/aop/spring-aop-4.1.xsd ">
+
+    <!-- 扫描controller（controller层注入） -->
+    <context:component-scan base-package="com.hemi.factor.web.controller" use-default-filters="false">
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+        <context:include-filter type="annotation" expression="org.springframework.web.bind.annotation.ControllerAdvice"/>
+    </context:component-scan>
+
+    <!-- 会自动注册DefaultAnnotationHandlerMapping与AnnotationMethodHandlerAdapter 两个bean,是spring MVC为@Controllers分发请求所必须的 -->
+    <!-- 指定自己定义的validator -->
+    <!--<mvc:annotation-driven validator="validator"/>-->
+
+    <bean id="conversionService" class="org.springframework.format.support.FormattingConversionServiceFactoryBean">
+
+    </bean>
+    <bean id="webBindingInitializer" class="org.springframework.web.bind.support.ConfigurableWebBindingInitializer">
+        <property name="conversionService" ref="conversionService"/>
+    </bean>
+    <bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping"/>
+    <bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter">
+        <property name="webBindingInitializer" ref="webBindingInitializer"/>
+        <property name="messageConverters">
+            <list>
+                <ref bean="stringConverter" />
+                <ref bean="fastjsonConverter" />
+            </list>
+        </property>
+    </bean>
+    <!--&lt;!&ndash; 以下 validator ConversionService 在使用 mvc:annotation-driven 会 自动注册 &ndash;&gt;-->
+    <!--<bean id="validator" class="org.springframework.validation.beanvalidation.LocalValidatorFactoryBean">-->
+        <!--<property name="providerClass" value="org.hibernate.validator.HibernateValidator"/>-->
+        <!--&lt;!&ndash; 如果不加默认到 使用classpath下的 ValidationMessages.properties &ndash;&gt;-->
+        <!--<property name="validationMessageSource" ref="messageSource"/>-->
+    <!--</bean>-->
+
+    <!--&lt;!&ndash; 国际化的消息资源文件（本系统中主要用于显示/错误消息定制） &ndash;&gt;-->
+    <!--<bean id="messageSource" class="org.springframework.context.support.ReloadableResourceBundleMessageSource">-->
+        <!--<property name="basenames">-->
+            <!--<list>-->
+                <!--&lt;!&ndash; 在web环境中一定要定位到classpath 否则默认到当前web应用下找 &ndash;&gt;-->
+                <!--<value>classpath:messages</value>-->
+                <!--<value>classpath:org/hibernate/validator/ValidationMessages</value>-->
+            <!--</list>-->
+        <!--</property>-->
+        <!--<property name="useCodeAsDefaultMessage" value="false"/>-->
+        <!--<property name="defaultEncoding" value="UTF-8"/>-->
+        <!--<property name="cacheSeconds" value="60"/>-->
+    <!--</bean>-->
+
+    <mvc:interceptors>
+        <bean class="org.springframework.web.servlet.i18n.LocaleChangeInterceptor"/>
+    </mvc:interceptors>
+
+    <bean id="localeResolver" class="org.springframework.web.servlet.i18n.CookieLocaleResolver">
+        <property name="defaultLocale" value="zh_CN"/>
+    </bean>
+
+    <!-- 改动begin -->
+    <!-- 解析String请求数据 -->
+    <bean id="stringConverter"
+          class="org.springframework.http.converter.StringHttpMessageConverter">
+        <property name="supportedMediaTypes">
+            <list>
+                <value>text/plain;charset=UTF-8</value>
+            </list>
+        </property>
+    </bean>
+
+
+    <!--&lt;!&ndash; 解析json请求数据，将json转换为java对象 &ndash;&gt;-->
+    <bean id="fastjsonConverter"
+          class="com.alibaba.fastjson.support.spring.FastJsonHttpMessageConverter">
+        <property name="supportedMediaTypes">
+            <list>
+                <!-- 这里顺序不能反，一定先写text/html，不然ie下出现下载提示 -->
+                <value>text/html;charset=UTF-8</value>
+                <value>application/json;charset=UTF-8</value>
+            </list>
+        </property>
+        <property name="features">
+            <array value-type="com.alibaba.fastjson.serializer.SerializerFeature">
+                <!-- 空值继续输出 -->
+                <value>WriteMapNullValue</value>
+                <!-- 防止循环引用 -->
+                <value>DisableCircularReferenceDetect</value>
+                <!-- 格式化日期,默认格式为：yyyy-MM-dd HH:mm:ss -->
+                <value>WriteDateUseDateFormat</value>
+            </array>
+        </property>
+    </bean>
+    <!-- 防止循环引用 -->
+    <bean id="DisableCircularReferenceDetect" class="org.springframework.beans.factory.config.FieldRetrievingFactoryBean">
+        <property name="staticField" value="com.alibaba.fastjson.serializer.SerializerFeature.DisableCircularReferenceDetect"></property>
+    </bean>
+
+    <!-- ContentNegotiatingViewResolver视图解析器，返回多视图 -->
+    <bean class="org.springframework.web.servlet.view.ContentNegotiatingViewResolver">
+        <property name="order" value="1"/>
+        <!-- 这里是否忽略掉accept header，默认就是false -->
+        <property name="ignoreAcceptHeader" value="true" />
+        <!-- 启用参数支持 -->
+        <property name="favorParameter" value="false"/>
+        <!-- 启用扩展名支持 -->
+        <property name="favorPathExtension" value="true"/>
+        <!-- 如果所有的mediaType都没匹配上，就会使用defaultContentType -->
+        <property name="defaultContentType" value="text/html" />
+
+        <property name="mediaTypes">
+            <map>
+                <entry key="json" value="application/json" />
+                <entry key="xml" value="application/xml" />
+            </map>
+        </property>
+
+        <property name="defaultViews">
+            <list>
+                <!-- json视图 -->
+                <bean class="com.alibaba.fastjson.support.spring.FastJsonJsonView">
+                    <property name="extractValueFromSingleKeyModel" value="true" />
+                    <property name="features">
+                        <array value-type="com.alibaba.fastjson.serializer.SerializerFeature">
+                            <!-- 空值继续输出 -->
+                            <value>WriteMapNullValue</value>
+                            <!-- 防止循环引用 -->
+                            <value>DisableCircularReferenceDetect</value>
+                            <!-- 格式化日期,默认格式为：yyyy-MM-dd HH:mm:ss -->
+                            <value>WriteDateUseDateFormat</value>
+                        </array>
+                    </property>
+                </bean>
+            </list>
+        </property>
+
+        <property name="viewResolvers">
+            <list>
+                <!-- 视图解析器，根据视图的名称new ModelAndView(name)，在配置文件查找对应的bean配置 -->
+                <bean class="org.springframework.web.servlet.view.BeanNameViewResolver" />
+
+                <bean
+                        class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+                    <property name="viewClass"
+                              value="org.springframework.web.servlet.view.JstlView" />
+                    <property name="contentType" value="text/html" />
+                    <!-- 对模型视图添加前后缀 -->
+                    <property name="prefix" value="/WEB-INF/views/" />
+                    <property name="suffix" value=".jsp" />
+                </bean>
+
+            </list>
+        </property>
+
+    </bean>
+    <aop:aspectj-autoproxy proxy-target-class="true"/>
+    <mvc:default-servlet-handler/>
+
+
+    <!-- 配置文件上传，如果没有使用文件上传可以不用配置，当然如果不配，那么配置文件中也不必引入上传组件包 -->
+    <bean id="multipartResolver"
+          class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+        <!-- 默认编码 -->
+        <property name="defaultEncoding" value="utf-8" />
+        <!-- 文件大小最大值 -->
+        <property name="maxUploadSize" value="10485760000" />
+        <!-- 内存中的最大值 -->
+        <property name="maxInMemorySize" value="40960" />
+    </bean>
+
+
+    <!--开启AOP,对类代理-->
+    <aop:config proxy-target-class="true"/>
+    <!-- 启用shrio授权注解拦截方式 -->
+    <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+        <property name="securityManager" ref="securityManager"/>
+    </bean>
+
+</beans>
